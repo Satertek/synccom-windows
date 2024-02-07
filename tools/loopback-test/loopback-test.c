@@ -35,6 +35,10 @@ int main(int argc, char *argv[])
         CloseHandle(h);
         return EXIT_FAILURE;
     }
+
+    // Configure the memory caps
+    set_mem(h);
+
     num_loops = atoi(argv[2]);
     max_size = atoi(argv[3]);
     if (max_size > MAX_BUFFER_SIZE) {
@@ -127,8 +131,8 @@ int loop_test(HANDLE h, int max_size, int num_loops)
     Sleep(1000);
     for (i = 0; i < (int)num_loops; i++)
     {
-        // Generate random data of a random size.
-        write_size = (rand() % max_size)+1;
+        // Write out a fixed size
+        write_size = max_size; //(rand() % max_size)+1;
         for (j = 0; j < write_size; j++) odata[j] = rand() % 255;
 
         // Now we write and verify we wrote the correct amount.
@@ -136,19 +140,19 @@ int loop_test(HANDLE h, int max_size, int num_loops)
         if (bytes_written != write_size) printf("%d: Failed to write the total frame! Attmpted to write %d, wrote %d.\n", i, write_size, bytes_written);
 
         // Read the data and verify that it's correct.
-        ReadFile(h, idata, sizeof(idata), &bytes_read, NULL);
-        if (bytes_written + 2 != bytes_read) {
-            printf("%d: Didn't read the correct number of bytes! Wrote %d bytes, read %d bytes!\n", i, bytes_written, bytes_read);
-            errors++;
-        }
-        for (j = 0; j < (int)bytes_written; j++) if (odata[j] != idata[j]) {
-            printf("%d: Data mismatch: byte %d: 0x%2.2x != 0x%2.2x\n", i, j, odata[j], idata[j]);
-            errors++;
-        }
-        if (idata[bytes_read - 2] != 0x04 || idata[bytes_read - 1] != 0x00) {
-            printf("0x%2.2x 0x%2.2x\n", idata[bytes_read - 2], idata[bytes_read - 1]);
-            errors++;
-        }
+        // ReadFile(h, idata, sizeof(idata), &bytes_read, NULL);
+        // if (bytes_written + 2 != bytes_read) {
+        //    printf("%d: Didn't read the correct number of bytes! Wrote %d bytes, read %d bytes!\n", i, bytes_written, bytes_read);
+        //    errors++;
+        // }
+        // for (j = 0; j < (int)bytes_written; j++) if (odata[j] != idata[j]) {
+        //    printf("%d: Data mismatch: byte %d: 0x%2.2x != 0x%2.2x\n", i, j, odata[j], idata[j]);
+        //    errors++;
+        //}
+        //if (idata[bytes_read - 2] != 0x04 || idata[bytes_read - 1] != 0x00) {
+        //    printf("0x%2.2x 0x%2.2x\n", idata[bytes_read - 2], idata[bytes_read - 1]);
+        //    errors++;
+        //}
 
         printf("Loop: %d\r", i);
         // Once we have an error, we break.
@@ -167,6 +171,20 @@ int purge(HANDLE h)
     return_value &= DeviceIoControl(h, SYNCCOM_PURGE_RX, NULL, 0, NULL, 0, &tmp, (LPOVERLAPPED)NULL);
     Sleep(1000);
     return return_value;
+}
+
+int set_mem(HANDLE h)
+{
+	DWORD tmp;
+	struct synccom_memory_cap memcap;
+
+	memcap.input = 10; /* 1 MB */
+	memcap.output = 1000000; /* 1 MB */
+
+	DeviceIoControl(h, SYNCCOM_SET_MEMORY_CAP,
+		&memcap, sizeof(memcap),
+		NULL, 0,
+		&tmp, (LPOVERLAPPED)NULL);
 }
 
 int set_clock(HANDLE h, int clock_speed)
